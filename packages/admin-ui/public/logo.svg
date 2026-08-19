@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="50%" style="stop-color:#ea580c"/>
+      <stop offset="100%" style="stop-color:#9333ea"/>
+    </linearGradient>
+    <linearGradient id="logo-grad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#9333ea;stop-opacity:0.8"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Chat bubble -->
+  <path d="M100 25 C55 25 20 55 20 95 C20 120 33 140 55 152 L48 175 L75 158 C83 160 91 162 100 162 C145 162 180 132 180 95 C180 55 145 25 100 25Z" fill="url(#logo-grad)" filter="url(#glow)"/>
+  <!-- Inner shine -->
+  <path d="M100 32 C58 32 27 58 27 95 C27 117 38 136 57 147 L52 167 L74 152 C82 154 91 156 100 156 C141 156 173 128 173 95 C173 58 141 32 100 32Z" fill="url(#logo-grad2)" opacity="0.3"/>
+  <!-- Lightning bolt (F shape) -->
+  <path d="M95 60 L80 100 L95 100 L85 140 L120 90 L105 90 L115 60 Z" fill="white" opacity="0.95"/>
+  <!-- Sparkle dots -->
+  <circle cx="145" cy="55" r="3" fill="#f97316" opacity="0.7"/>
+  <circle cx="55" cy="70" r="2" fill="#a855f7" opacity="0.6"/>
+  <circle cx="155" cy="85" r="2" fill="#f97316" opacity="0.5"/>
+</svg>

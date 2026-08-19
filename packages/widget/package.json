@@ -1,0 +1,10 @@
+{
+  "name": "fazoo-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embeddable Fazoo chat widget (standalone JS)",
+  "main": "widget.js",
+  "scripts": {
+    "build": "echo 'widget is plain JS; no build required'"
+  }
+}
