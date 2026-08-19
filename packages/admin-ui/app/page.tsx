@@ -45,9 +45,9 @@ export default function Page() {
   }, [])
 
   const cards = [
-    { label: 'Assistants', value: stats.assistants, icon: '🤖', gradient: 'from-orange-500/20 to-orange-600/10', barColor: '#f97316' },
-    { label: 'Conversations', value: stats.conversations, icon: '💬', gradient: 'from-purple-500/20 to-purple-600/10', barColor: '#9333ea' },
-    { label: 'Knowledge Sources', value: stats.knowledgeSources, icon: '📚', gradient: 'from-violet-500/20 to-purple-500/10', barColor: '#8b5cf6' }
+    { label: 'Assistants', value: stats.assistants, barColor: '#f97316' },
+    { label: 'Conversations', value: stats.conversations, barColor: '#9333ea' },
+    { label: 'Knowledge Sources', value: stats.knowledgeSources, barColor: '#8b5cf6' }
   ]
 
   return (
@@ -74,9 +74,8 @@ export default function Page() {
                 style={{ background: `radial-gradient(circle, ${c.barColor}15, transparent 70%)` }} />
 
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs text-white/40 tracking-widest uppercase font-light">{c.label}</p>
-                  <span className="text-lg opacity-50">{c.icon}</span>
+                <div className="mb-4">
+                  <p className="text-[11px] text-white/40 tracking-widest uppercase font-light">{c.label}</p>
                 </div>
                 <p className="text-4xl font-light text-white/90 mb-4">{c.value}</p>
                 <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
