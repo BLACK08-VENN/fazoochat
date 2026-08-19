@@ -1,6 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
+  if (!API_URL) throw new Error('API not configured')
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
@@ -14,6 +15,23 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
   if (res.status === 204) return null
   return res.json()
+}
+
+let _apiConnected: boolean | null = null
+
+export async function checkApiConnection(): Promise<boolean> {
+  if (!API_URL) return false
+  try {
+    const res = await fetch(`${API_URL}/health`, { method: 'GET' })
+    _apiConnected = res.ok
+  } catch {
+    _apiConnected = false
+  }
+  return _apiConnected
+}
+
+export function isApiConfigured() {
+  return !!API_URL
 }
 
 export async function apiAuthFetch(path: string, token: string, options: RequestInit = {}) {

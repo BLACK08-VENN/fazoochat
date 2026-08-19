@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { apiAuthFetch } from '../lib/api'
+import { apiAuthFetch, isApiConfigured } from '../lib/api'
 
 export default function Page() {
   const [stats, setStats] = useState({ assistants: 0, conversations: 0, knowledgeSources: 0 })
@@ -10,6 +10,10 @@ export default function Page() {
 
   useEffect(() => {
     async function load() {
+      if (!isApiConfigured()) {
+        setLoading(false)
+        return
+      }
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
       const token = session.access_token

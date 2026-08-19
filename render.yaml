@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: fazoochat-api
+    runtime: node
+    rootDir: packages/api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_API_URL
+        value: https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent
+      - key: GEMINI_EMBEDDING_URL
+        value: https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 10000
