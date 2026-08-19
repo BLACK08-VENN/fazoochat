@@ -1,4 +1,5 @@
 {
+  "rootDirectory": "packages/admin-ui",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
