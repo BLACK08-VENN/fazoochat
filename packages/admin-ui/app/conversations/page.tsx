@@ -93,12 +93,12 @@ export default function ConversationsPage() {
     return new Date(ts).toLocaleString()
   }
 
-  function statusColor(s: string) {
-    const map: Record<string, string> = {
-      open: 'bg-green-500/20 text-green-400',
-      closed: 'bg-white/10 text-white/40',
-      escalated: 'bg-red-500/20 text-red-400',
-      resolved: 'bg-blue-500/20 text-blue-400'
+  function statusStyle(s: string) {
+    const map: Record<string, { bg: string; text: string; glow: string }> = {
+      open: { bg: 'rgba(34,197,94,0.1)', text: '#4ade80', glow: '0 0 8px rgba(34,197,94,0.2)' },
+      closed: { bg: 'rgba(255,255,255,0.04)', text: 'rgba(255,255,255,0.35)', glow: 'none' },
+      escalated: { bg: 'rgba(239,68,68,0.1)', text: '#f87171', glow: '0 0 8px rgba(239,68,68,0.2)' },
+      resolved: { bg: 'rgba(96,165,250,0.1)', text: '#60a5fa', glow: '0 0 8px rgba(96,165,250,0.2)' }
     }
     return map[s] || map.open
   }
@@ -106,93 +106,126 @@ export default function ConversationsPage() {
   const filters = ['', 'open', 'closed', 'escalated', 'resolved']
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold gradient-text mb-6">Conversations</h1>
-
-      {/* Status filter */}
-      <div className="flex gap-2 mb-4">
-        {filters.map(f => (
-          <button
-            key={f || 'all'}
-            onClick={() => setStatusFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
-              statusFilter === f ? 'text-white font-medium' : 'text-white/40 hover:text-white/60'
-            }`}
-            style={statusFilter === f ? { background: 'rgba(249,115,22,0.3)' } : { background: 'rgba(255,255,255,0.05)' }}
-          >
-            {f || 'All'}
-          </button>
-        ))}
+    <div className="animate-fade-in">
+      <div className="mb-6">
+        <h1 className="text-3xl font-light tracking-wide shimmer-text mb-2">Conversations</h1>
+        <p className="text-white/30 text-sm tracking-wider uppercase">Message Threads</p>
       </div>
 
-      <div className="flex gap-4">
+      {/* Status filter */}
+      <div className="flex gap-2 mb-5">
+        {filters.map(f => {
+          const active = statusFilter === f
+          return (
+            <button
+              key={f || 'all'}
+              onClick={() => setStatusFilter(f)}
+              className="text-[11px] px-4 py-2 rounded-lg transition-all duration-300 tracking-widest uppercase"
+              style={active ? {
+                background: 'linear-gradient(135deg, rgba(249,115,22,0.2), rgba(147,51,234,0.1))',
+                color: '#fff',
+                boxShadow: '0 0 16px rgba(249,115,22,0.1)',
+                border: '1px solid rgba(249,115,22,0.2)'
+              } : {
+                background: 'rgba(255,255,255,0.03)',
+                color: 'rgba(255,255,255,0.3)',
+                border: '1px solid rgba(255,255,255,0.04)'
+              }}
+            >
+              {f || 'All'}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex gap-5">
         {/* Conversation list */}
-        <div className="w-1/3 glass rounded-2xl overflow-hidden">
+        <div className="w-1/3 glass-futuristic rounded-2xl overflow-hidden">
           {loading ? (
-            <div className="p-4 flex items-center gap-3 text-white/40">
+            <div className="p-5 flex items-center gap-3 text-white/30">
               <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-              Loading...
+              <span className="text-sm">Loading...</span>
             </div>
           ) : conversations.length === 0 ? (
-            <p className="p-4 text-white/40">No conversations yet.</p>
+            <div className="p-8 text-center">
+              <p className="text-white/20 text-sm">No conversations yet.</p>
+            </div>
           ) : (
-            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
-              {conversations.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => selectConversation(c.id)}
-                  className={`w-full text-left p-4 transition-colors ${selectedId === c.id ? 'bg-white/5' : 'hover:bg-white/5'}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-sm text-white">
-                        {c.customers?.name || c.customers?.email || 'Anonymous'}
-                      </p>
-                      <p className="text-xs text-white/40">
-                        {c.assistants?.name || 'Unknown'} &middot; {c.channel || 'web'}
-                      </p>
+            <div className="max-h-[600px] overflow-y-auto">
+              {conversations.map(c => {
+                const active = selectedId === c.id
+                const s = statusStyle(c.status)
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => selectConversation(c.id)}
+                    className={`w-full text-left p-4 transition-all duration-300 border-b border-white/[0.03] ${
+                      active ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
+                    }`}
+                    style={active ? { borderLeft: '2px solid #f97316' } : { borderLeft: '2px solid transparent' }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-white/80 truncate">
+                          {c.customers?.name || c.customers?.email || 'Anonymous'}
+                        </p>
+                        <p className="text-[11px] text-white/25 mt-0.5">
+                          {c.assistants?.name || 'Unknown'} &middot; {c.channel || 'web'}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-md tracking-wider uppercase shrink-0 ml-2"
+                        style={{ background: s.bg, color: s.text, boxShadow: s.glow }}
+                      >
+                        {c.status}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(c.status)}`}>
-                      {c.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/30 mt-1">{formatTime(c.last_message_at)}</p>
-                </button>
-              ))}
+                    <p className="text-[10px] text-white/15 mt-2">{formatTime(c.last_message_at)}</p>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
 
         {/* Message detail + actions */}
-        <div className="flex-1 glass rounded-2xl p-4">
+        <div className="flex-1 glass-futuristic rounded-2xl p-5">
           {!selectedId ? (
-            <p className="text-white/30 text-center mt-8">Select a conversation</p>
+            <div className="flex items-center justify-center h-full">
+              <p className="text-white/15 text-sm tracking-wider uppercase">Select a conversation</p>
+            </div>
           ) : messagesLoading ? (
-            <div className="flex items-center gap-3 text-white/40">
+            <div className="flex items-center gap-3 text-white/30">
               <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-              Loading messages...
+              <span className="text-sm">Loading messages...</span>
             </div>
           ) : (
             <>
               {/* Action bar */}
-              <div className="flex gap-2 mb-4 pb-3 border-b border-white/10">
-                <button onClick={() => closeConversation(selectedId)} className="text-xs px-3 py-1.5 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+              <div className="flex gap-2 mb-4 pb-4 border-b border-white/[0.05]">
+                <button onClick={() => closeConversation(selectedId)} className="neon-btn text-[11px] px-4 py-2 rounded-lg tracking-wider uppercase">
                   Close
                 </button>
-                <button onClick={() => setShowEscalate(!showEscalate)} className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+                <button onClick={() => setShowEscalate(!showEscalate)} className="text-[11px] px-4 py-2 rounded-lg tracking-wider uppercase transition-all duration-300"
+                  style={{
+                    background: showEscalate ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.05)',
+                    border: '1px solid rgba(239,68,68,0.15)',
+                    color: '#f87171'
+                  }}>
                   Escalate
                 </button>
               </div>
               {showEscalate && (
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-4 animate-fade-in">
                   <input
                     value={escalateReason}
                     onChange={e => setEscalateReason(e.target.value)}
                     placeholder="Reason for escalation..."
-                    className="flex-1 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-400/50"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    className="flex-1 rounded-lg px-4 py-2 text-sm text-white/80 placeholder-white/20 focus:outline-none transition-all duration-300"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                   />
-                  <button onClick={() => escalateConversation(selectedId)} className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
+                  <button onClick={() => escalateConversation(selectedId)} className="text-[11px] px-4 py-2 rounded-lg transition-all duration-300"
+                    style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
                     Submit
                   </button>
                 </div>
@@ -200,25 +233,38 @@ export default function ConversationsPage() {
 
               {/* Messages */}
               {messages.length === 0 ? (
-                <p className="text-white/30">No messages.</p>
+                <p className="text-white/15 text-center mt-8 text-sm">No messages.</p>
               ) : (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {messages.map(m => (
-                    <div key={m.id} className={`flex ${m.sender_type === 'assistant' ? 'justify-start' : 'justify-end'}`}>
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm ${
-                        m.sender_type === 'assistant'
-                          ? 'text-white'
-                          : 'text-white'
-                      }`}
-                      style={m.sender_type === 'assistant'
-                        ? { background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', borderBottomLeftRadius: '4px', border: '1px solid rgba(255,255,255,0.08)' }
-                        : { background: 'linear-gradient(135deg, #f97316, #ea580c)', borderBottomRightRadius: '4px' }
-                      }>
-                        <p>{m.content}</p>
-                        <p className="text-xs mt-1 opacity-50">{formatTime(m.created_at)}</p>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto stagger-children">
+                  {messages.map(m => {
+                    const isAssistant = m.sender_type === 'assistant'
+                    return (
+                      <div key={m.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
+                        <div
+                          className="max-w-xs lg:max-w-md px-4 py-2.5 text-[13px] leading-relaxed"
+                          style={isAssistant
+                            ? {
+                                background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
+                                backdropFilter: 'blur(12px)',
+                                color: '#e8e0f0',
+                                borderRadius: '16px 16px 16px 4px',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.03), 0 2px 8px rgba(0,0,0,0.1)'
+                              }
+                            : {
+                                background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                                color: '#fff',
+                                borderRadius: '16px 16px 4px 16px',
+                                boxShadow: '0 4px 16px rgba(249, 115, 22, 0.2)'
+                              }
+                          }
+                        >
+                          <p>{m.content}</p>
+                          <p className="text-[10px] mt-1.5 opacity-35">{formatTime(m.created_at)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </>

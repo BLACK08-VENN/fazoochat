@@ -28,42 +28,64 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md glass-strong rounded-2xl p-8">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <img src="/logo.svg" alt="" className="w-10 h-10" />
-          <h1 className="text-2xl font-bold gradient-text">Fazoo</h1>
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Ambient orbs */}
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.08), transparent 70%)', animation: 'float 6s ease-in-out infinite' }} />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.06), transparent 70%)', animation: 'float 8s ease-in-out infinite 2s' }} />
+
+      <div className="w-full max-w-md glass-futuristic rounded-2xl p-8 relative z-10 animate-fade-in-up">
+        {/* Scan line */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none scan-line opacity-20" />
+
+        <div className="flex items-center justify-center gap-3 mb-10 relative">
+          <img src="/logo.svg" alt="" className="w-11 h-11" />
+          <h1 className="text-3xl font-bold gradient-text-static">Fazoo</h1>
         </div>
-        <form onSubmit={handleLogin} className="space-y-4">
+
+        <form onSubmit={handleLogin} className="space-y-5 relative">
           <div>
-            <label className="block text-sm font-medium text-white/60 mb-1">Email</label>
+            <label className="block text-[11px] font-medium text-white/35 mb-2 tracking-widest uppercase">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-orange-400/50"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              className="w-full rounded-xl px-4 py-3 text-white/90 placeholder-white/20 text-sm transition-all duration-300"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-white/60 mb-1">Password</label>
+            <label className="block text-[11px] font-medium text-white/35 mb-2 tracking-widest uppercase">Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-orange-400/50"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              className="w-full rounded-xl px-4 py-3 text-white/90 placeholder-white/20 text-sm transition-all duration-300"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
               required
             />
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && (
+            <p className="text-red-400/80 text-xs px-3 py-2 rounded-lg" style={{
+              background: 'rgba(239, 68, 68, 0.06)',
+              border: '1px solid rgba(239, 68, 68, 0.12)'
+            }}>
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full glow-btn text-white py-2.5 rounded-lg font-medium disabled:opacity-50"
+            className="w-full glow-btn text-white py-3 rounded-xl font-medium text-sm tracking-wide disabled:opacity-40 relative overflow-hidden mt-2"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Authenticating...
+              </span>
+            ) : 'Sign in'}
           </button>
         </form>
       </div>
