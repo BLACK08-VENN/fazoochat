@@ -4,7 +4,8 @@ vi.mock('../supabaseClient', () => ({
   supabaseAdmin: {
     from: vi.fn(),
     auth: { getUser: vi.fn() }
-  }
+  },
+  isSupabaseAdminConfigured: vi.fn(() => true)
 }))
 
 vi.mock('../knowledgeProcessor', () => ({
@@ -446,6 +447,7 @@ describe('Health endpoint', () => {
     const res = await request(app).get('/health')
     expect(res.status).toBe(200)
     expect(res.body.ok).toBe(true)
+    expect(res.body.supabase_admin_configured).toBe(true)
   })
 
   it('allows the production Vercel frontend origin', async () => {

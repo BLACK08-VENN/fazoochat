@@ -6,6 +6,6 @@ describe('API health endpoint', () => {
   it('returns an ok response without starting a network listener', () => {
     const json = vi.fn()
     healthHandler({} as never, { json } as never)
-    expect(json).toHaveBeenCalledWith({ ok: true })
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }))
   })
 })

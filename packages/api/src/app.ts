@@ -10,6 +10,7 @@ import analyticsRouter from './routes/analytics'
 import customersRouter from './routes/customers'
 import whatsappRouter from './routes/whatsapp'
 import { publicChatLimiter, authLimiter } from './middleware/rateLimit'
+import { isSupabaseAdminConfigured } from './supabaseClient'
 
 function allowedOrigins() {
   return [
@@ -23,7 +24,10 @@ function allowedOrigins() {
 }
 
 export function healthHandler(_req: Request, res: Response) {
-  return res.json({ ok: true })
+  return res.json({
+    ok: true,
+    supabase_admin_configured: isSupabaseAdminConfigured()
+  })
 }
 
 export function createApp() {
