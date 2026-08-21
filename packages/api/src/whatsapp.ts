@@ -18,6 +18,10 @@ function getClient(config: TwilioConfig): twilio.Twilio {
   return clientCache[key]
 }
 
+function toWhatsAppAddress(phoneNumber: string): string {
+  return phoneNumber.startsWith('whatsapp:') ? phoneNumber : `whatsapp:${phoneNumber}`
+}
+
 export async function getWhatsAppConfig(
   organizationId: string,
   supabase: SupabaseClient = supabaseAdmin
@@ -45,8 +49,8 @@ export async function sendWhatsAppMessage(
   const client = getClient(config)
   try {
     const msg = await client.messages.create({
-      from: `whatsapp:${config.whatsappNumber}`,
-      to: `whatsapp:${to}`,
+      from: toWhatsAppAddress(config.whatsappNumber),
+      to: toWhatsAppAddress(to),
       body
     })
     return msg.sid
