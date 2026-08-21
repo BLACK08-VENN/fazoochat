@@ -270,9 +270,7 @@ describe('Assistants routes', () => {
     })
 
     it('returns 404 when user is not org member', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'a-1', organization_id: 'org-1' }))
-        .mockReturnValueOnce(mockChain(null))
+      mockFrom.mockReturnValueOnce(mockChain(null, { message: 'not found' }))
 
       const res = await request(app)
         .get('/assistants/a-1')
@@ -282,9 +280,7 @@ describe('Assistants routes', () => {
     })
 
     it('returns assistant when user is org member', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'a-1', organization_id: 'org-1', name: 'Bot' }))
-        .mockReturnValueOnce(mockChain({ id: 'mem-1' }))
+      mockFrom.mockReturnValueOnce(mockChain({ id: 'a-1', organization_id: 'org-1', name: 'Bot' }))
 
       const res = await request(app)
         .get('/assistants/a-1')
