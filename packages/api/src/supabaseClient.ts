@@ -20,6 +20,12 @@ const SUPABASE_SERVICE_KEY = normalizeSecret(
   ''
 )
 
+const SUPABASE_API_KEY = normalizeSecret(
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  SUPABASE_SERVICE_KEY
+)
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.warn('Supabase URL or service key not provided. Server operations will fail if used.')
 }
@@ -46,3 +52,12 @@ export const supabaseAdmin = createClient(SUPABASE_URL || 'http://localhost', SU
       : undefined
   }
 })
+
+export function createSupabaseUserClient(accessToken: string) {
+  return createClient(SUPABASE_URL || 'http://localhost', SUPABASE_API_KEY || 'dummy', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    }
+  })
+}

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../supabaseClient'
 
 export interface AuthRequest extends Request {
   user?: { id: string; email?: string }
+  accessToken?: string
 }
 
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
@@ -16,6 +17,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     const { data, error } = await supabaseAdmin.auth.getUser(token)
     if (error || !data?.user) return res.status(401).json({ error: 'invalid token' })
     req.user = { id: data.user.id, email: data.user.email || undefined }
+    req.accessToken = token
     return next()
   } catch (err) {
     console.error('auth verify error', err)

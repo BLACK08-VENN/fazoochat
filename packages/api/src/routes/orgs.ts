@@ -1,5 +1,5 @@
 import express from 'express'
-import { supabaseAdmin } from '../supabaseClient'
+import { createSupabaseUserClient, supabaseAdmin } from '../supabaseClient'
 import { validate, createOrgSchema, createWorkspaceSchema } from '../validation'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { isOrganizationMember } from '../authorization'
@@ -34,7 +34,8 @@ router.post('/', requireAdmin, validate(createOrgSchema), async (req, res) => {
 })
 
 router.get('/mine', authenticate, async (req: AuthRequest, res) => {
-  const { data: memberships, error: membershipError } = await supabaseAdmin
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data: memberships, error: membershipError } = await supabaseUser
     .from('organization_members')
     .select('organization_id, role')
     .eq('user_id', req.user!.id)
@@ -45,7 +46,7 @@ router.get('/mine', authenticate, async (req: AuthRequest, res) => {
   const roleByOrganization = new Map(
     memberships.map(membership => [membership.organization_id, membership.role])
   )
-  const { data: organizations, error: organizationError } = await supabaseAdmin
+  const { data: organizations, error: organizationError } = await supabaseUser
     .from('organizations')
     .select('id, name, slug, created_at')
     .in('id', [...roleByOrganization.keys()])
@@ -61,10 +62,9 @@ router.get('/mine', authenticate, async (req: AuthRequest, res) => {
 
 router.post('/mine', authenticate, validate(createWorkspaceSchema), async (req: AuthRequest, res) => {
   const { name, slug } = req.body
-  const { data: organization, error: organizationError } = await supabaseAdmin
-    .from('organizations')
-    .insert([{ name, slug }])
-    .select('id, name, slug, created_at')
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data: organization, error: organizationError } = await supabaseUser
+    .rpc('create_workspace', { workspace_name: name, workspace_slug: slug })
     .single()
 
   if (organizationError) {
@@ -74,20 +74,7 @@ router.post('/mine', authenticate, validate(createWorkspaceSchema), async (req: 
     return res.status(500).json({ error: organizationError.message })
   }
 
-  const { error: membershipError } = await supabaseAdmin
-    .from('organization_members')
-    .insert([{
-      organization_id: organization.id,
-      user_id: req.user!.id,
-      role: 'owner'
-    }])
-
-  if (membershipError) {
-    await supabaseAdmin.from('organizations').delete().eq('id', organization.id)
-    return res.status(500).json({ error: membershipError.message })
-  }
-
-  res.status(201).json({ ...organization, role: 'owner' })
+  res.status(201).json(organization)
 })
 
 router.get('/:id/members', authenticate, async (req: AuthRequest, res) => {

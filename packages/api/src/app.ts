@@ -26,7 +26,8 @@ function allowedOrigins() {
 export function healthHandler(_req: Request, res: Response) {
   return res.json({
     ok: true,
-    supabase_admin_configured: isSupabaseAdminConfigured()
+    supabase_admin_configured: isSupabaseAdminConfigured(),
+    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) || null
   })
 }
 

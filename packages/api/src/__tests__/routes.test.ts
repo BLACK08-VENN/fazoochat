@@ -3,8 +3,10 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('../supabaseClient', () => ({
   supabaseAdmin: {
     from: vi.fn(),
+    rpc: vi.fn(),
     auth: { getUser: vi.fn() }
   },
+  createSupabaseUserClient: vi.fn(() => supabaseAdmin),
   isSupabaseAdminConfigured: vi.fn(() => true)
 }))
 
@@ -33,6 +35,7 @@ import { processKnowledgeSource } from '../knowledgeProcessor'
 
 const app = createApp()
 const mockFrom = supabaseAdmin.from as any
+const mockRpc = supabaseAdmin.rpc as any
 const mockGetUser = supabaseAdmin.auth.getUser as any
 
 function mockChain(data: any = null, error: any = null) {
@@ -388,9 +391,7 @@ describe('Orgs routes', () => {
 
   describe('POST /orgs/mine', () => {
     it('creates a workspace and makes the authenticated user its owner', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'org-1', name: 'Test Workspace', slug: 'test-workspace' }))
-        .mockReturnValueOnce(mockChain(null))
+      mockRpc.mockReturnValueOnce(mockChain({ id: 'org-1', name: 'Test Workspace', slug: 'test-workspace', role: 'owner' }))
 
       const res = await request(app)
         .post('/orgs/mine')
@@ -399,12 +400,14 @@ describe('Orgs routes', () => {
 
       expect(res.status).toBe(201)
       expect(res.body).toMatchObject({ id: 'org-1', role: 'owner' })
-      expect(mockFrom).toHaveBeenNthCalledWith(1, 'organizations')
-      expect(mockFrom).toHaveBeenNthCalledWith(2, 'organization_members')
+      expect(mockRpc).toHaveBeenCalledWith('create_workspace', {
+        workspace_name: 'Test Workspace',
+        workspace_slug: 'test-workspace'
+      })
     })
 
     it('returns 409 when the workspace slug is already used', async () => {
-      mockFrom.mockReturnValueOnce(mockChain(null, { code: '23505', message: 'duplicate key value violates unique constraint' }))
+      mockRpc.mockReturnValueOnce(mockChain(null, { code: '23505', message: 'duplicate key value violates unique constraint' }))
 
       const res = await request(app)
         .post('/orgs/mine')
