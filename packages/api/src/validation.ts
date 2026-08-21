@@ -19,6 +19,11 @@ export const createOrgSchema = z.object({
   owner_user_id: z.string().uuid()
 })
 
+export const createWorkspaceSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  slug: z.string().trim().min(1).max(100).regex(/^[a-z0-9-]+$/, 'slug must be lowercase alphanumeric with hyphens')
+})
+
 export const createAssistantSchema = z.object({
   organization_id: z.string().uuid(),
   name: z.string().min(1).max(200),

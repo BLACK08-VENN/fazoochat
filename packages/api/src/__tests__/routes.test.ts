@@ -325,6 +325,11 @@ describe('Assistants routes', () => {
 })
 
 describe('Orgs routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuthUser()
+  })
+
   describe('GET /orgs', () => {
     it('returns 403 without admin key', async () => {
       const res = await request(app).get('/orgs')
@@ -341,6 +346,71 @@ describe('Orgs routes', () => {
 
       expect(res.status).toBe(200)
       delete process.env.ADMIN_API_KEY
+    })
+  })
+
+  describe('GET /orgs/mine', () => {
+    it('returns 401 without auth', async () => {
+      const res = await request(app).get('/orgs/mine')
+      expect(res.status).toBe(401)
+    })
+
+    it('returns the authenticated user workspaces with roles', async () => {
+      mockFrom
+        .mockReturnValueOnce(mockChain([{ organization_id: 'org-1', role: 'owner' }]))
+        .mockReturnValueOnce(mockChain([{ id: 'org-1', name: 'Test Workspace', slug: 'test-workspace' }]))
+
+      const res = await request(app)
+        .get('/orgs/mine')
+        .set('Authorization', authHeader())
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([{
+        id: 'org-1',
+        name: 'Test Workspace',
+        slug: 'test-workspace',
+        role: 'owner'
+      }])
+    })
+
+    it('returns an empty list when the user has no workspace', async () => {
+      mockFrom.mockReturnValueOnce(mockChain([]))
+
+      const res = await request(app)
+        .get('/orgs/mine')
+        .set('Authorization', authHeader())
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+    })
+  })
+
+  describe('POST /orgs/mine', () => {
+    it('creates a workspace and makes the authenticated user its owner', async () => {
+      mockFrom
+        .mockReturnValueOnce(mockChain({ id: 'org-1', name: 'Test Workspace', slug: 'test-workspace' }))
+        .mockReturnValueOnce(mockChain(null))
+
+      const res = await request(app)
+        .post('/orgs/mine')
+        .set('Authorization', authHeader())
+        .send({ name: 'Test Workspace', slug: 'test-workspace' })
+
+      expect(res.status).toBe(201)
+      expect(res.body).toMatchObject({ id: 'org-1', role: 'owner' })
+      expect(mockFrom).toHaveBeenNthCalledWith(1, 'organizations')
+      expect(mockFrom).toHaveBeenNthCalledWith(2, 'organization_members')
+    })
+
+    it('returns 409 when the workspace slug is already used', async () => {
+      mockFrom.mockReturnValueOnce(mockChain(null, { code: '23505', message: 'duplicate key value violates unique constraint' }))
+
+      const res = await request(app)
+        .post('/orgs/mine')
+        .set('Authorization', authHeader())
+        .send({ name: 'Test Workspace', slug: 'test-workspace' })
+
+      expect(res.status).toBe(409)
     })
   })
 })
@@ -376,6 +446,15 @@ describe('Health endpoint', () => {
     const res = await request(app).get('/health')
     expect(res.status).toBe(200)
     expect(res.body.ok).toBe(true)
+  })
+
+  it('allows the production Vercel frontend origin', async () => {
+    const res = await request(app)
+      .get('/health')
+      .set('Origin', 'https://fazoochat.vercel.app')
+
+    expect(res.status).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBe('https://fazoochat.vercel.app')
   })
 })
 

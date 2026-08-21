@@ -1,6 +1,6 @@
 import express from 'express'
 import { supabaseAdmin } from '../supabaseClient'
-import { validate, createOrgSchema } from '../validation'
+import { validate, createOrgSchema, createWorkspaceSchema } from '../validation'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { isOrganizationMember } from '../authorization'
 
@@ -31,6 +31,63 @@ router.post('/', requireAdmin, validate(createOrgSchema), async (req, res) => {
   if (memberErr) return res.status(500).json({ error: memberErr.message })
 
   res.status(201).json(org)
+})
+
+router.get('/mine', authenticate, async (req: AuthRequest, res) => {
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from('organization_members')
+    .select('organization_id, role')
+    .eq('user_id', req.user!.id)
+
+  if (membershipError) return res.status(500).json({ error: membershipError.message })
+  if (!memberships?.length) return res.json([])
+
+  const roleByOrganization = new Map(
+    memberships.map(membership => [membership.organization_id, membership.role])
+  )
+  const { data: organizations, error: organizationError } = await supabaseAdmin
+    .from('organizations')
+    .select('id, name, slug, created_at')
+    .in('id', [...roleByOrganization.keys()])
+    .order('created_at', { ascending: true })
+
+  if (organizationError) return res.status(500).json({ error: organizationError.message })
+
+  res.json((organizations || []).map(organization => ({
+    ...organization,
+    role: roleByOrganization.get(organization.id)
+  })))
+})
+
+router.post('/mine', authenticate, validate(createWorkspaceSchema), async (req: AuthRequest, res) => {
+  const { name, slug } = req.body
+  const { data: organization, error: organizationError } = await supabaseAdmin
+    .from('organizations')
+    .insert([{ name, slug }])
+    .select('id, name, slug, created_at')
+    .single()
+
+  if (organizationError) {
+    if (organizationError.code === '23505' || organizationError.message?.toLowerCase().includes('unique')) {
+      return res.status(409).json({ error: 'workspace slug is already in use' })
+    }
+    return res.status(500).json({ error: organizationError.message })
+  }
+
+  const { error: membershipError } = await supabaseAdmin
+    .from('organization_members')
+    .insert([{
+      organization_id: organization.id,
+      user_id: req.user!.id,
+      role: 'owner'
+    }])
+
+  if (membershipError) {
+    await supabaseAdmin.from('organizations').delete().eq('id', organization.id)
+    return res.status(500).json({ error: membershipError.message })
+  }
+
+  res.status(201).json({ ...organization, role: 'owner' })
 })
 
 router.get('/:id/members', authenticate, async (req: AuthRequest, res) => {

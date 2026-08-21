@@ -12,9 +12,13 @@ import whatsappRouter from './routes/whatsapp'
 import { publicChatLimiter, authLimiter } from './middleware/rateLimit'
 
 function allowedOrigins() {
-  return (process.env.CORS_ORIGINS || 'http://localhost:3000')
-    .split(',')
+  return [
+    'http://localhost:3000',
+    'https://fazoochat.vercel.app',
+    ...(process.env.CORS_ORIGINS || '').split(',')
+  ]
     .map(origin => origin.trim())
+    .map(origin => origin.replace(/\/$/, ''))
     .filter(Boolean)
 }
 
@@ -27,7 +31,8 @@ export function createApp() {
   const origins = allowedOrigins()
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || origins.includes('*') || origins.includes(origin)) return callback(null, true)
+      const normalizedOrigin = origin?.replace(/\/$/, '')
+      if (!normalizedOrigin || origins.includes('*') || origins.includes(normalizedOrigin)) return callback(null, true)
       return callback(new Error('Origin is not allowed by CORS'))
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']

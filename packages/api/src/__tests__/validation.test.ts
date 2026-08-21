@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   validate,
   createOrgSchema,
+  createWorkspaceSchema,
   createAssistantSchema,
   updateAssistantSchema,
   createKnowledgeSourceSchema,
@@ -34,6 +35,24 @@ describe('Zod schemas', () => {
 
     it('rejects missing name', () => {
       const result = createOrgSchema.safeParse({ slug: 'test', owner_user_id: '550e8400-e29b-41d4-a716-446655440000' })
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('createWorkspaceSchema', () => {
+    it('accepts a workspace owned by the authenticated user', () => {
+      const result = createWorkspaceSchema.safeParse({
+        name: 'Test Workspace',
+        slug: 'test-workspace'
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects a workspace slug with spaces', () => {
+      const result = createWorkspaceSchema.safeParse({
+        name: 'Test Workspace',
+        slug: 'Test Workspace'
+      })
       expect(result.success).toBe(false)
     })
   })
