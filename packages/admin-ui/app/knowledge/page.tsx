@@ -40,10 +40,14 @@ export default function KnowledgePage() {
         try {
           const src = await apiAuthFetch(`/knowledge/sources?assistant_id=${a.id}`, token)
           if (Array.isArray(src)) allSources.push(...src)
-        } catch {}
+        } catch (err) {
+          console.error('Failed to load sources for assistant:', a.id, err)
+        }
       }
       setSources(allSources)
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load knowledge data:', err)
+    }
     setLoading(false)
   }
 

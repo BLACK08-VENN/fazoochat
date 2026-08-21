@@ -43,11 +43,21 @@ export default function ConversationsPage() {
       const url = statusFilter ? `/chat/conversations?status=${statusFilter}` : '/chat/conversations'
       const data = await apiAuthFetch(url, token)
       setConversations(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load conversations:', err)
+    }
     setLoading(false)
   }
 
   useEffect(() => { loadConversations() }, [statusFilter])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const interval = setInterval(() => {
+      selectConversation(selectedId)
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [selectedId])
 
   async function selectConversation(id: string) {
     setSelectedId(id)
@@ -57,7 +67,8 @@ export default function ConversationsPage() {
     try {
       const data = await apiAuthFetch(`/chat/conversations/${id}/messages`, token)
       setMessages(Array.isArray(data) ? data : [])
-    } catch {
+    } catch (err) {
+      console.error('Failed to load messages:', err)
       setMessages([])
     }
     setMessagesLoading(false)

@@ -2,8 +2,10 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   if (!API_URL) throw new Error('API not configured')
+  const signal = options.signal || AbortSignal.timeout(8000)
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
+    signal,
     headers: {
       'Content-Type': 'application/json',
       ...options.headers
@@ -22,7 +24,7 @@ let _apiConnected: boolean | null = null
 export async function checkApiConnection(): Promise<boolean> {
   if (!API_URL) return false
   try {
-    const res = await fetch(`${API_URL}/health`, { method: 'GET' })
+    const res = await fetch(`${API_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) })
     _apiConnected = res.ok
   } catch {
     _apiConnected = false

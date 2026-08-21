@@ -116,6 +116,7 @@
 	 assigned_to uuid,
 	 started_at timestamptz,
 	 last_message_at timestamptz,
+	 public_token uuid UNIQUE,
 	 created_at timestamptz DEFAULT now()
  );
 

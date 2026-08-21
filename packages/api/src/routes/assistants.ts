@@ -2,6 +2,7 @@ import express from 'express'
 import { supabaseAdmin } from '../supabaseClient'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { validate, createAssistantSchema, updateAssistantSchema } from '../validation'
+import { isOrganizationMember } from '../authorization'
 
 const router = express.Router()
 
@@ -17,6 +18,9 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 router.get('/:id', authenticate, async (req: AuthRequest, res) => {
   const { data, error } = await supabaseAdmin.from('assistants').select('*').eq('id', req.params.id).single()
   if (error) return res.status(404).json({ error: 'not found' })
+  if (!(await isOrganizationMember(req.user!.id, data.organization_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   res.json(data)
 })
 

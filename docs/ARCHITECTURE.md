@@ -14,7 +14,7 @@ Multi-tenant SaaS AI chatbot platform. Businesses create AI assistants backed by
 | Database | Supabase (PostgreSQL) with pgvector extension |
 | Auth | Supabase Auth (JWT bearer tokens) |
 | AI / Embeddings | Google Gemini API |
-| Vector Search | pgvector (ivfflat index, cosine distance) |
+| Vector Search | pgvector through a service-role-only Supabase RPC |
 | Validation | Zod |
 | Rate Limiting | express-rate-limit |
 | Embeddable Widget | Vanilla JavaScript (self-contained IIFE) |
@@ -33,7 +33,6 @@ Multi-tenant SaaS AI chatbot platform. Businesses create AI assistants backed by
 packages/
   api/              Express REST API server
   admin-ui/         Next.js admin dashboard + hosted widget UI
-  chatbot-engine/   Reusable RAG pipeline class library
   widget/           Embeddable vanilla JS widget script
 ```
 

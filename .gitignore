@@ -7,10 +7,12 @@ dist/
 .next/
 out/
 
-# Environment files
+# Environment files (never commit real credentials)
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
 # IDE
 .vscode/
@@ -35,5 +37,6 @@ coverage/
 # Supabase
 supabase/.temp/
 supabase/.env
+
+# Vercel
 .vercel
-.env*

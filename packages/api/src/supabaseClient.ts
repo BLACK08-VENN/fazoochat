@@ -7,6 +7,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.warn('Supabase URL or service key not provided. Server operations will fail if used.')
 }
 
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+export const supabaseAdmin = createClient(SUPABASE_URL || 'http://localhost', SUPABASE_SERVICE_KEY || 'dummy', {
   auth: { persistSession: false }
 })

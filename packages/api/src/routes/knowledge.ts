@@ -3,12 +3,20 @@ import { supabaseAdmin } from '../supabaseClient'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { processKnowledgeSource } from '../knowledgeProcessor'
 import { validate, createKnowledgeSourceSchema } from '../validation'
+import { isOrganizationMember } from '../authorization'
 
 const router = express.Router()
 
 router.get('/sources', authenticate, async (req: AuthRequest, res) => {
   const { assistant_id } = req.query
   if (!assistant_id) return res.status(400).json({ error: 'assistant_id required' })
+
+  const { data: assistant } = await supabaseAdmin.from('assistants').select('organization_id').eq('id', assistant_id).single()
+  if (!assistant) return res.status(404).json({ error: 'assistant not found' })
+  if (!(await isOrganizationMember(req.user!.id, assistant.organization_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
+
   const { data, error } = await supabaseAdmin.from('knowledge_sources').select('*').eq('assistant_id', assistant_id)
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
@@ -16,7 +24,10 @@ router.get('/sources', authenticate, async (req: AuthRequest, res) => {
 
 router.get('/sources/:id', authenticate, async (req: AuthRequest, res) => {
   const { data, error } = await supabaseAdmin.from('knowledge_sources').select('*').eq('id', req.params.id).single()
-  if (error) return res.status(404).json({ error: 'not found' })
+  if (error || !data) return res.status(404).json({ error: 'not found' })
+  if (!(await isOrganizationMember(req.user!.id, data.organization_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   res.json(data)
 })
 
@@ -67,12 +78,22 @@ router.put('/sources/:id', authenticate, async (req: AuthRequest, res) => {
 })
 
 router.delete('/sources/:id', authenticate, async (req: AuthRequest, res) => {
+  const { data: existing } = await supabaseAdmin.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
+  if (!existing) return res.status(404).json({ error: 'not found' })
+  if (!(await isOrganizationMember(req.user!.id, existing.organization_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { error } = await supabaseAdmin.from('knowledge_sources').delete().eq('id', req.params.id)
   if (error) return res.status(500).json({ error: error.message })
   res.status(204).end()
 })
 
 router.get('/sources/:id/chunks', authenticate, async (req: AuthRequest, res) => {
+  const { data: source } = await supabaseAdmin.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
+  if (!source) return res.status(404).json({ error: 'not found' })
+  if (!(await isOrganizationMember(req.user!.id, source.organization_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { data, error } = await supabaseAdmin
     .from('knowledge_chunks')
     .select('id, content, metadata, created_at')

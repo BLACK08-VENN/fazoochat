@@ -11,15 +11,12 @@
 
 1. Create a new Supabase project
 2. Enable the `vector` extension (for pgvector)
-3. Run the migration:
+3. Run the migrations in the Supabase SQL Editor, in numerical order:
 
-```bash
-# Set DATABASE_URL to your Supabase connection string (use transaction mode for migrations)
-export DATABASE_URL="postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
-
-# Apply schema
-psql "$DATABASE_URL" -f supabase/migrations/001_init.sql
-```
+   - `supabase/migrations/001_init.sql`
+   - `supabase/migrations/002_public_conversation_tokens.sql`
+   - `supabase/migrations/003_whatsapp.sql`
+   - `supabase/migrations/004_vector_search_rpc.sql`
 
 4. Note your project URL and keys from the Supabase dashboard:
    - Project URL: `https://[PROJECT_REF].supabase.co`
@@ -34,10 +31,10 @@ psql "$DATABASE_URL" -f supabase/migrations/001_init.sql
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-service-role-key
 GEMINI_API_KEY=your-gemini-key
-GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent
-GEMINI_EMBEDDING_URL=https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+GEMINI_EMBEDDING_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent
+CORS_ORIGINS=http://localhost:3000
 ADMIN_API_KEY=your-admin-api-key
-DATABASE_URL=postgresql://...
 PORT=4000
 ```
 

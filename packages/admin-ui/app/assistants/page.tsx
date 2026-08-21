@@ -32,7 +32,9 @@ export default function AssistantsPage() {
     try {
       const data = await apiAuthFetch('/assistants', token)
       setAssistants(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load assistants:', err)
+    }
     setLoading(false)
   }
 

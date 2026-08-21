@@ -1,13 +1,15 @@
 import express from 'express'
 import { supabaseAdmin } from '../supabaseClient'
 import { generateEmbedding } from '../embeddings'
-import { query as pgQuery } from '../db'
+import { retrieveKnowledge } from '../vectorSearch'
 import { validate, publicChatSchema } from '../validation'
+import { randomUUID } from 'crypto'
+import { generateText } from '../gemini'
 
 const router = express.Router()
 
 router.post('/', validate(publicChatSchema), async (req, res) => {
-  const { assistant_id, message, conversation_id, customer_name, customer_email } = req.body
+  const { assistant_id, message, conversation_id, conversation_token, customer_name, customer_email } = req.body
 
   const { data: assistant, error: aErr } = await supabaseAdmin
     .from('assistants')
@@ -41,7 +43,9 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
   }
 
   let convId = conversation_id
+  let publicToken = conversation_token
   if (!convId) {
+    publicToken = randomUUID()
     const { data: conv } = await supabaseAdmin
       .from('conversations')
       .insert([{
@@ -49,6 +53,7 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
         assistant_id,
         customer_id: customerId,
         channel: 'widget',
+        public_token: publicToken,
         started_at: new Date().toISOString(),
         last_message_at: new Date().toISOString()
       }])
@@ -56,10 +61,17 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
       .single()
     convId = conv?.id
   } else {
-    await supabaseAdmin
+    if (!conversation_token) return res.status(403).json({ error: 'conversation token required' })
+    const { data: existingConversation } = await supabaseAdmin
       .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
+      .select('id')
       .eq('id', convId)
+      .eq('assistant_id', assistant_id)
+      .eq('organization_id', orgId)
+      .eq('public_token', conversation_token)
+      .maybeSingle()
+    if (!existingConversation) return res.status(403).json({ error: 'invalid conversation credentials' })
+    await supabaseAdmin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId)
   }
 
   if (!convId) return res.status(500).json({ error: 'failed to create conversation' })
@@ -78,15 +90,9 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
     return res.status(500).json({ error: 'embedding generation failed', detail: err.message })
   }
 
-  const vecLiteral = '[' + embedding.join(',') + ']'
-  const topK = 5
   let chunks: any[] = []
   try {
-    const r = await pgQuery(
-      'SELECT id, content, metadata FROM knowledge_chunks WHERE organization_id = $2 ORDER BY embedding <-> ($1::vector) LIMIT $3',
-      [vecLiteral, orgId, topK]
-    )
-    chunks = r.rows
+    chunks = await retrieveKnowledge(embedding, orgId, assistant_id)
   } catch (err: any) {
     console.error('Vector search failed:', err.message)
   }
@@ -97,20 +103,8 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
     ? `${systemPrompt}\n\nRelevant knowledge:\n${contextText}\n\nCustomer question:\n${message}`
     : `${systemPrompt}\n\nCustomer question:\n${message}`
 
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || ''
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-  if (!GEMINI_API_URL || !GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'AI not configured on server' })
-  }
-
   try {
-    const resp = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GEMINI_API_KEY}` },
-      body: JSON.stringify({ prompt: constructedPrompt })
-    })
-    const gen = await resp.json()
-    const assistantReply = gen?.output || gen?.text || JSON.stringify(gen)
+    const assistantReply = await generateText(constructedPrompt)
 
     await supabaseAdmin.from('messages').insert([{
       conversation_id: convId,
@@ -126,11 +120,12 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
       conversation_id: convId,
       event_type: 'message_sent',
       metadata: { sender_type: 'customer', chunks_used: chunks.length }
-    }])).catch(() => {})
+    }])).catch(err => console.error('Analytics insert failed:', err.message))
 
     res.json({
       reply: assistantReply,
       conversation_id: convId,
+      conversation_token: publicToken,
       assistant: { id: assistant.id, name: assistant.name, avatar_url: assistant.avatar_url, welcome_message: assistant.welcome_message }
     })
   } catch (err: any) {
@@ -139,6 +134,16 @@ router.post('/', validate(publicChatSchema), async (req, res) => {
 })
 
 router.get('/conversations/:id/messages', async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : ''
+  if (!token) return res.status(403).json({ error: 'conversation token required' })
+  const { data: conversation } = await supabaseAdmin
+    .from('conversations')
+    .select('id')
+    .eq('id', req.params.id)
+    .eq('public_token', token)
+    .maybeSingle()
+  if (!conversation) return res.status(404).json({ error: 'conversation not found' })
+
   const { data, error } = await supabaseAdmin
     .from('messages')
     .select('id, sender_type, content, created_at')

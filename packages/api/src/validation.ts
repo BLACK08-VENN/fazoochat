@@ -49,8 +49,13 @@ export const publicChatSchema = z.object({
   assistant_id: z.string().uuid(),
   message: z.string().min(1).max(10000),
   conversation_id: z.string().uuid().optional(),
+  conversation_token: z.string().uuid().optional(),
   customer_name: z.string().max(200).optional(),
   customer_email: z.string().email().optional()
+})
+
+export const publicConversationQuerySchema = z.object({
+  token: z.string().uuid()
 })
 
 export const authenticatedChatSchema = z.object({

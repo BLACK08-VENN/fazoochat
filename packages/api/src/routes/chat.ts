@@ -2,8 +2,10 @@ import express from 'express'
 import { supabaseAdmin } from '../supabaseClient'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { generateEmbedding } from '../embeddings'
-import { query as pgQuery } from '../db'
+import { retrieveKnowledge } from '../vectorSearch'
 import { validate, authenticatedChatSchema, escalateSchema, updateConversationSchema } from '../validation'
+import { canAccessConversation, isOrganizationMember } from '../authorization'
+import { generateText } from '../gemini'
 
 const router = express.Router()
 
@@ -25,6 +27,9 @@ router.get('/conversations', authenticate, async (req: AuthRequest, res) => {
 })
 
 router.get('/conversations/:id', authenticate, async (req: AuthRequest, res) => {
+  if (!(await canAccessConversation(req.user!.id, req.params.id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { data, error } = await supabaseAdmin
     .from('conversations')
     .select('*, assistants(name), customers(name, email)')
@@ -35,6 +40,9 @@ router.get('/conversations/:id', authenticate, async (req: AuthRequest, res) => 
 })
 
 router.put('/conversations/:id', authenticate, validate(updateConversationSchema), async (req: AuthRequest, res) => {
+  if (!(await canAccessConversation(req.user!.id, req.params.id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { status, assigned_to } = req.body
   const updates: Record<string, any> = {}
   if (status) updates.status = status
@@ -53,7 +61,7 @@ router.put('/conversations/:id', authenticate, validate(updateConversationSchema
 router.post('/conversations/:id/escalate', authenticate, validate(escalateSchema), async (req: AuthRequest, res) => {
   const { reason } = req.body
 
-  const { data: conv } = await supabaseAdmin.from('conversations').select('organization_id').eq('id', req.params.id).single()
+  const conv = await canAccessConversation(req.user!.id, req.params.id)
   if (!conv) return res.status(404).json({ error: 'conversation not found' })
 
   const { data, error } = await supabaseAdmin.from('escalations').insert([{
@@ -70,6 +78,9 @@ router.post('/conversations/:id/escalate', authenticate, validate(escalateSchema
 })
 
 router.get('/conversations/:id/escalations', authenticate, async (req: AuthRequest, res) => {
+  if (!(await canAccessConversation(req.user!.id, req.params.id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { data, error } = await supabaseAdmin
     .from('escalations')
     .select('*')
@@ -80,6 +91,14 @@ router.get('/conversations/:id/escalations', authenticate, async (req: AuthReque
 })
 
 router.put('/escalations/:id', authenticate, async (req: AuthRequest, res) => {
+  const { data: escalation } = await supabaseAdmin
+    .from('escalations')
+    .select('conversation_id')
+    .eq('id', req.params.id)
+    .maybeSingle()
+  if (!escalation || !(await canAccessConversation(req.user!.id, escalation.conversation_id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { status } = req.body
   const updates: Record<string, any> = { status: status || 'resolved' }
   if (status === 'resolved') updates.resolved_at = new Date().toISOString()
@@ -95,6 +114,9 @@ router.put('/escalations/:id', authenticate, async (req: AuthRequest, res) => {
 })
 
 router.get('/conversations/:id/messages', authenticate, async (req: AuthRequest, res) => {
+  if (!(await canAccessConversation(req.user!.id, req.params.id))) {
+    return res.status(404).json({ error: 'not found' })
+  }
   const { data, error } = await supabaseAdmin
     .from('messages')
     .select('id, sender_type, content, created_at')
@@ -114,8 +136,17 @@ router.post('/assistants/:assistantId/message', authenticate, validate(authentic
 
   const orgId = assistant.organization_id
 
-  const { data: m } = await supabaseAdmin.from('organization_members').select('role').match({ organization_id: orgId, user_id: userId }).limit(1).maybeSingle()
-  if (!m) return res.status(403).json({ error: 'not a member of organization' })
+  if (!(await isOrganizationMember(userId, orgId))) return res.status(403).json({ error: 'not a member of organization' })
+
+  if (customer_id) {
+    const { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('id')
+      .eq('id', customer_id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    if (!customer) return res.status(400).json({ error: 'customer does not belong to organization' })
+  }
 
   let embedding: number[]
   try {
@@ -124,13 +155,9 @@ router.post('/assistants/:assistantId/message', authenticate, validate(authentic
     return res.status(500).json({ error: 'embedding generation failed', detail: err.message })
   }
 
-  const vecLiteral = '[' + embedding.join(',') + ']'
-  const topK = 5
-  const sql = `SELECT id, content, metadata FROM knowledge_chunks WHERE organization_id = $2 ORDER BY embedding <-> ($1::vector) LIMIT $3`
   let chunks: any[] = []
   try {
-    const r = await pgQuery(sql, [vecLiteral, orgId, topK])
-    chunks = r.rows
+    chunks = await retrieveKnowledge(embedding, orgId, assistantId)
   } catch (err: any) {
     return res.status(500).json({ error: 'similarity search failed', detail: err.message })
   }
@@ -139,20 +166,8 @@ router.post('/assistants/:assistantId/message', authenticate, validate(authentic
   const systemPrompt = assistant.system_prompt || ''
   const constructedPrompt = `${systemPrompt}\n\nRelevant knowledge:\n${contextText}\n\nCustomer question:\n${content}`
 
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || ''
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-  if (!GEMINI_API_URL || !GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'Gemini not configured on server' })
-  }
-
   try {
-    const resp = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GEMINI_API_KEY}` },
-      body: JSON.stringify({ prompt: constructedPrompt })
-    })
-    const gen = await resp.json()
-    const assistantReply = gen?.output || gen?.text || JSON.stringify(gen)
+    const assistantReply = await generateText(constructedPrompt)
 
     const { data: conv } = await supabaseAdmin.from('conversations').insert([{
       organization_id: orgId,
@@ -161,6 +176,8 @@ router.post('/assistants/:assistantId/message', authenticate, validate(authentic
       started_at: new Date().toISOString(),
       last_message_at: new Date().toISOString()
     }]).select().single()
+
+    if (!conv) return res.status(500).json({ error: 'failed to create conversation' })
 
     await supabaseAdmin.from('messages').insert([
       { conversation_id: conv.id, organization_id: orgId, sender_type: 'customer', content },
@@ -171,7 +188,7 @@ router.post('/assistants/:assistantId/message', authenticate, validate(authentic
     Promise.resolve(supabaseAdmin.from('analytics_events').insert([{
       organization_id: orgId, assistant_id: assistantId, conversation_id: conv.id,
       event_type: 'message_sent', metadata: { sender_type: 'customer', chunks_used: chunks.length }
-    }])).catch(() => {})
+    }])).catch(err => console.error('Analytics insert failed:', err.message))
 
     res.json({ reply: assistantReply, conversation_id: conv.id, contexts: chunks })
   } catch (err: any) {

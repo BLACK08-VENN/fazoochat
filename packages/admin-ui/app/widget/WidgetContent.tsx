@@ -50,6 +50,7 @@ export default function WidgetContent() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversationToken, setConversationToken] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -102,10 +103,12 @@ export default function WidgetContent() {
         body: JSON.stringify({
           assistant_id: assistantId,
           message: text,
-          conversation_id: conversationId
+          conversation_id: conversationId,
+          conversation_token: conversationToken
         })
       })
       setConversationId(res.conversation_id)
+      setConversationToken(res.conversation_token)
       const botMsg: Message = {
         id: `reply-${Date.now()}`,
         sender_type: 'assistant',
