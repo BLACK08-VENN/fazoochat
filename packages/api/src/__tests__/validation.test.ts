@@ -112,8 +112,7 @@ describe('Zod schemas', () => {
     it('accepts valid knowledge source', () => {
       const result = createKnowledgeSourceSchema.safeParse({
         assistant_id: '550e8400-e29b-41d4-a716-446655440000',
-        title: 'FAQ',
-        organization_id: '550e8400-e29b-41d4-a716-446655440000'
+        title: 'FAQ'
       })
       expect(result.success).toBe(true)
     })
@@ -123,8 +122,7 @@ describe('Zod schemas', () => {
         assistant_id: '550e8400-e29b-41d4-a716-446655440000',
         title: 'FAQ',
         content: 'Some content',
-        source_type: 'text',
-        organization_id: '550e8400-e29b-41d4-a716-446655440000'
+        source_type: 'text'
       })
       expect(result.success).toBe(true)
     })
@@ -133,8 +131,7 @@ describe('Zod schemas', () => {
       const result = createKnowledgeSourceSchema.safeParse({
         assistant_id: '550e8400-e29b-41d4-a716-446655440000',
         title: 'FAQ',
-        source_type: 'invalid',
-        organization_id: '550e8400-e29b-41d4-a716-446655440000'
+        source_type: 'invalid'
       })
       expect(result.success).toBe(false)
     })

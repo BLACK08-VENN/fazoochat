@@ -27,6 +27,11 @@ export function healthHandler(_req: Request, res: Response) {
   return res.json({
     ok: true,
     supabase_admin_configured: isSupabaseAdminConfigured(),
+    gemini_configured: Boolean(
+      process.env.GEMINI_API_KEY &&
+      process.env.GEMINI_API_URL &&
+      process.env.GEMINI_EMBEDDING_URL
+    ),
     commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) || null
   })
 }

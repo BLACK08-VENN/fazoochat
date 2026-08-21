@@ -1,48 +1,48 @@
 import express from 'express'
-import { supabaseAdmin } from '../supabaseClient'
+import { createSupabaseUserClient } from '../supabaseClient'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
 import { processKnowledgeSource } from '../knowledgeProcessor'
 import { validate, createKnowledgeSourceSchema } from '../validation'
-import { isOrganizationMember } from '../authorization'
 
 const router = express.Router()
 
 router.get('/sources', authenticate, async (req: AuthRequest, res) => {
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
   const { assistant_id } = req.query
   if (!assistant_id) return res.status(400).json({ error: 'assistant_id required' })
 
-  const { data: assistant } = await supabaseAdmin.from('assistants').select('organization_id').eq('id', assistant_id).single()
+  const { data: assistant } = await supabaseUser.from('assistants').select('organization_id').eq('id', assistant_id).single()
   if (!assistant) return res.status(404).json({ error: 'assistant not found' })
-  if (!(await isOrganizationMember(req.user!.id, assistant.organization_id))) {
-    return res.status(404).json({ error: 'not found' })
-  }
 
-  const { data, error } = await supabaseAdmin.from('knowledge_sources').select('*').eq('assistant_id', assistant_id)
+  const { data, error } = await supabaseUser.from('knowledge_sources').select('*').eq('assistant_id', assistant_id)
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 })
 
 router.get('/sources/:id', authenticate, async (req: AuthRequest, res) => {
-  const { data, error } = await supabaseAdmin.from('knowledge_sources').select('*').eq('id', req.params.id).single()
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data, error } = await supabaseUser.from('knowledge_sources').select('*').eq('id', req.params.id).single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
-  if (!(await isOrganizationMember(req.user!.id, data.organization_id))) {
-    return res.status(404).json({ error: 'not found' })
-  }
   res.json(data)
 })
 
 router.post('/sources', authenticate, validate(createKnowledgeSourceSchema), async (req: AuthRequest, res) => {
-  const { assistant_id, title, content, source_type, organization_id } = req.body
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { assistant_id, title, content, source_type } = req.body
 
-  const { data: m } = await supabaseAdmin.from('organization_members').select('role').match({ organization_id, user_id: req.user!.id }).limit(1).maybeSingle()
-  if (!m) return res.status(403).json({ error: 'not a member' })
+  const { data: assistant } = await supabaseUser
+    .from('assistants')
+    .select('organization_id')
+    .eq('id', assistant_id)
+    .single()
+  if (!assistant) return res.status(404).json({ error: 'assistant not found' })
 
-  const { data, error } = await supabaseAdmin.from('knowledge_sources').insert([{
-    assistant_id, title, content, source_type: source_type || 'text', organization_id
+  const { data, error } = await supabaseUser.from('knowledge_sources').insert([{
+    assistant_id, title, content, source_type: source_type || 'text', organization_id: assistant.organization_id
   }]).select().single()
   if (error) return res.status(500).json({ error: error.message })
 
-  processKnowledgeSource(data.id).catch(err => {
+  processKnowledgeSource(data.id, supabaseUser).catch(err => {
     console.error('Background knowledge processing failed:', err.message)
   })
 
@@ -50,26 +50,24 @@ router.post('/sources', authenticate, validate(createKnowledgeSourceSchema), asy
 })
 
 router.put('/sources/:id', authenticate, async (req: AuthRequest, res) => {
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
   const { title, content, source_type } = req.body
-  const { data: existing } = await supabaseAdmin.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
+  const { data: existing } = await supabaseUser.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
   if (!existing) return res.status(404).json({ error: 'not found' })
-
-  const { data: m } = await supabaseAdmin.from('organization_members').select('role').match({ organization_id: existing.organization_id, user_id: req.user!.id }).limit(1).maybeSingle()
-  if (!m) return res.status(403).json({ error: 'not a member' })
 
   const updates: Record<string, any> = { updated_at: new Date().toISOString() }
   if (title !== undefined) updates.title = title
   if (content !== undefined) updates.content = content
   if (source_type !== undefined) updates.source_type = source_type
 
-  const { data, error } = await supabaseAdmin.from('knowledge_sources').update(updates).eq('id', req.params.id).select().single()
+  const { data, error } = await supabaseUser.from('knowledge_sources').update(updates).eq('id', req.params.id).select().single()
   if (error) return res.status(500).json({ error: error.message })
 
   // Re-process if content changed
   if (content !== undefined) {
     // Delete existing chunks
-    await supabaseAdmin.from('knowledge_chunks').delete().eq('knowledge_source_id', req.params.id)
-    processKnowledgeSource(req.params.id).catch(err => {
+    await supabaseUser.from('knowledge_chunks').delete().eq('knowledge_source_id', req.params.id)
+    processKnowledgeSource(req.params.id, supabaseUser).catch(err => {
       console.error('Background knowledge processing failed:', err.message)
     })
   }
@@ -78,23 +76,19 @@ router.put('/sources/:id', authenticate, async (req: AuthRequest, res) => {
 })
 
 router.delete('/sources/:id', authenticate, async (req: AuthRequest, res) => {
-  const { data: existing } = await supabaseAdmin.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data: existing } = await supabaseUser.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
   if (!existing) return res.status(404).json({ error: 'not found' })
-  if (!(await isOrganizationMember(req.user!.id, existing.organization_id))) {
-    return res.status(404).json({ error: 'not found' })
-  }
-  const { error } = await supabaseAdmin.from('knowledge_sources').delete().eq('id', req.params.id)
+  const { error } = await supabaseUser.from('knowledge_sources').delete().eq('id', req.params.id)
   if (error) return res.status(500).json({ error: error.message })
   res.status(204).end()
 })
 
 router.get('/sources/:id/chunks', authenticate, async (req: AuthRequest, res) => {
-  const { data: source } = await supabaseAdmin.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data: source } = await supabaseUser.from('knowledge_sources').select('organization_id').eq('id', req.params.id).single()
   if (!source) return res.status(404).json({ error: 'not found' })
-  if (!(await isOrganizationMember(req.user!.id, source.organization_id))) {
-    return res.status(404).json({ error: 'not found' })
-  }
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseUser
     .from('knowledge_chunks')
     .select('id, content, metadata, created_at')
     .eq('knowledge_source_id', req.params.id)

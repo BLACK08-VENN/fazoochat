@@ -138,9 +138,7 @@ describe('Knowledge routes', () => {
     })
 
     it('returns 404 when user is not org member', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'ks-1', organization_id: 'org-1' }))
-        .mockReturnValueOnce(mockChain(null))
+      mockFrom.mockReturnValueOnce(mockChain(null, { message: 'not found' }))
 
       const res = await request(app)
         .get('/knowledge/sources/ks-1')
@@ -150,9 +148,7 @@ describe('Knowledge routes', () => {
     })
 
     it('returns source when user is org member', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'ks-1', organization_id: 'org-1', title: 'FAQ' }))
-        .mockReturnValueOnce(mockChain({ id: 'mem-1' }))
+      mockFrom.mockReturnValueOnce(mockChain({ id: 'ks-1', organization_id: 'org-1', title: 'FAQ' }))
 
       const res = await request(app)
         .get('/knowledge/sources/ks-1')
@@ -166,7 +162,7 @@ describe('Knowledge routes', () => {
   describe('POST /knowledge/sources', () => {
     it('creates a knowledge source and triggers processing', async () => {
       mockFrom
-        .mockReturnValueOnce(mockChain({ role: 'owner' }))  // membership check
+        .mockReturnValueOnce(mockChain({ organization_id: '550e8400-e29b-41d4-a716-446655440000' }))
         .mockReturnValueOnce(mockChain({ id: 'ks-1', title: 'New Source' }))  // insert
 
       const res = await request(app)
@@ -175,27 +171,25 @@ describe('Knowledge routes', () => {
         .send({
           assistant_id: '550e8400-e29b-41d4-a716-446655440000',
           title: 'New Source',
-          content: 'Some content',
-          organization_id: '550e8400-e29b-41d4-a716-446655440000'
+          content: 'Some content'
         })
 
       expect(res.status).toBe(201)
       expect(processKnowledgeSource).toHaveBeenCalled()
     })
 
-    it('returns 403 when user is not org member', async () => {
-      mockFrom.mockReturnValueOnce(mockChain(null))  // no membership
+    it('returns 404 when the assistant is not accessible', async () => {
+      mockFrom.mockReturnValueOnce(mockChain(null, { message: 'not found' }))
 
       const res = await request(app)
         .post('/knowledge/sources')
         .set('Authorization', authHeader())
         .send({
           assistant_id: '550e8400-e29b-41d4-a716-446655440000',
-          title: 'New Source',
-          organization_id: '550e8400-e29b-41d4-a716-446655440000'
+          title: 'New Source'
         })
 
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(404)
     })
   })
 
@@ -211,9 +205,7 @@ describe('Knowledge routes', () => {
     })
 
     it('returns 404 when user is not org member', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ organization_id: 'org-1' }))  // fetch source
-        .mockReturnValueOnce(mockChain(null))  // no membership
+      mockFrom.mockReturnValueOnce(mockChain(null, { message: 'not found' }))
 
       const res = await request(app)
         .delete('/knowledge/sources/ks-1')
@@ -225,7 +217,6 @@ describe('Knowledge routes', () => {
     it('deletes source when user is org member', async () => {
       mockFrom
         .mockReturnValueOnce(mockChain({ organization_id: 'org-1' }))  // fetch source
-        .mockReturnValueOnce(mockChain({ id: 'mem-1' }))  // membership check
         .mockReturnValueOnce(mockChain(null))  // delete
 
       const res = await request(app)

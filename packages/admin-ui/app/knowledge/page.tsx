@@ -13,6 +13,12 @@ interface KnowledgeSource {
   created_at: string
 }
 
+interface AssistantOption {
+  id: string
+  name: string
+  organization_id: string
+}
+
 export default function KnowledgePage() {
   const [sources, setSources] = useState<KnowledgeSource[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,9 +26,8 @@ export default function KnowledgePage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [assistantId, setAssistantId] = useState('')
-  const [orgId, setOrgId] = useState('')
   const [error, setError] = useState('')
-  const [assistants, setAssistants] = useState<any[]>([])
+  const [assistants, setAssistants] = useState<AssistantOption[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -34,9 +39,10 @@ export default function KnowledgePage() {
     if (!token) return
     try {
       const assistantList = await apiAuthFetch('/assistants', token)
-      setAssistants(Array.isArray(assistantList) ? assistantList : [])
+      const availableAssistants: AssistantOption[] = Array.isArray(assistantList) ? assistantList : []
+      setAssistants(availableAssistants)
       const allSources: KnowledgeSource[] = []
-      for (const a of (Array.isArray(assistantList) ? assistantList : [])) {
+      for (const a of availableAssistants) {
         try {
           const src = await apiAuthFetch(`/knowledge/sources?assistant_id=${a.id}`, token)
           if (Array.isArray(src)) allSources.push(...src)
@@ -61,13 +67,12 @@ export default function KnowledgePage() {
     try {
       await apiAuthFetch('/knowledge/sources', token, {
         method: 'POST',
-        body: JSON.stringify({ assistant_id: assistantId, title, content, organization_id: orgId })
+        body: JSON.stringify({ assistant_id: assistantId, title, content })
       })
       setShowCreate(false)
       setTitle('')
       setContent('')
       setAssistantId('')
-      setOrgId('')
       loadData()
     } catch (err: any) {
       setError(err.message)
@@ -130,17 +135,13 @@ export default function KnowledgePage() {
               <label className="block text-[11px] font-medium text-white/35 mb-2 tracking-widest uppercase">Content</label>
               <textarea value={content} onChange={e => setContent(e.target.value)} rows={6} className={inputCls} style={inputStyle} required />
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="mt-4">
               <div>
                 <label className="block text-[11px] font-medium text-white/35 mb-2 tracking-widest uppercase">Assistant</label>
                 <select value={assistantId} onChange={e => setAssistantId(e.target.value)} className={inputCls} style={inputStyle} required>
                   <option value="">Select assistant</option>
-                  {assistants.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {assistants.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-white/35 mb-2 tracking-widest uppercase">Organization ID</label>
-                <input value={orgId} onChange={e => setOrgId(e.target.value)} className={inputCls} style={inputStyle} required />
               </div>
             </div>
             {error && (

@@ -46,8 +46,7 @@ export const createKnowledgeSourceSchema = z.object({
   assistant_id: z.string().uuid(),
   title: z.string().min(1).max(500),
   content: z.string().max(500000).optional(),
-  source_type: z.enum(['text', 'url', 'file']).optional(),
-  organization_id: z.string().uuid()
+  source_type: z.enum(['text', 'url', 'file']).optional()
 })
 
 export const publicChatSchema = z.object({
