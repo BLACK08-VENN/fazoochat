@@ -707,9 +707,7 @@ describe('WhatsApp routes', () => {
     })
 
     it('returns 404 when not configured', async () => {
-      mockFrom
-        .mockReturnValueOnce(mockChain({ id: 'mem-1' }))
-        .mockReturnValueOnce(mockChain(null, { message: 'not found' }))
+      mockFrom.mockReturnValueOnce(mockChain(null, { message: 'not found' }))
 
       const res = await request(app)
         .get('/whatsapp/config/org-1')

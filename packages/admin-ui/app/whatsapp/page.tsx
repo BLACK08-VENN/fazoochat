@@ -11,6 +11,11 @@ interface WhatsAppConfig {
   enabled: boolean
 }
 
+interface Workspace {
+  id: string
+  name: string
+}
+
 export default function WhatsAppPage() {
   const [config, setConfig] = useState<WhatsAppConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,7 +26,7 @@ export default function WhatsAppPage() {
   const [orgId, setOrgId] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [orgIds, setOrgIds] = useState<string[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -32,12 +37,12 @@ export default function WhatsAppPage() {
     const token = await getToken()
     if (!token) return
     try {
-      const profileData = await apiAuthFetch('/auth/verify', token)
-      const ids = (profileData.orgs || []).map((o: any) => o.organization_id)
-      setOrgIds(ids)
-      if (ids.length > 0 && !orgId) {
-        setOrgId(ids[0])
-        await loadConfig(ids[0], token)
+      const workspaceData = await apiAuthFetch('/orgs/mine', token)
+      const availableWorkspaces: Workspace[] = Array.isArray(workspaceData) ? workspaceData : []
+      setWorkspaces(availableWorkspaces)
+      if (availableWorkspaces.length > 0 && !orgId) {
+        setOrgId(availableWorkspaces[0].id)
+        await loadConfig(availableWorkspaces[0].id, token)
       }
     } catch (err) {
       console.error('Failed to load WhatsApp config:', err)
@@ -113,19 +118,19 @@ export default function WhatsAppPage() {
           <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm tracking-wide">Loading...</span>
         </div>
-      ) : orgIds.length === 0 ? (
+      ) : workspaces.length === 0 ? (
         <div className="glass-futuristic rounded-2xl p-8 text-center">
           <p className="text-white/20 text-sm">No organizations found.</p>
         </div>
       ) : (
         <>
           <div className="flex gap-2 mb-6">
-            {orgIds.map(id => (
+            {workspaces.map(workspace => (
               <button
-                key={id}
-                onClick={() => setOrgId(id)}
+                key={workspace.id}
+                onClick={() => setOrgId(workspace.id)}
                 className="text-[11px] px-4 py-2 rounded-lg transition-all duration-300 tracking-widest uppercase"
-                style={orgId === id ? {
+                style={orgId === workspace.id ? {
                   background: 'linear-gradient(135deg, rgba(249,115,22,0.2), rgba(147,51,234,0.1))',
                   color: '#fff',
                   border: '1px solid rgba(249,115,22,0.2)'
@@ -134,7 +139,7 @@ export default function WhatsAppPage() {
                   color: 'rgba(255,255,255,0.3)',
                   border: '1px solid rgba(255,255,255,0.04)'
                 }}>
-                {id.slice(0, 12)}...
+                {workspace.name}
               </button>
             ))}
           </div>

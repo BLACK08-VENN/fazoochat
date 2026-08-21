@@ -1,4 +1,5 @@
 import twilio from 'twilio'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from './supabaseClient'
 
 interface TwilioConfig {
@@ -17,8 +18,11 @@ function getClient(config: TwilioConfig): twilio.Twilio {
   return clientCache[key]
 }
 
-export async function getWhatsAppConfig(organizationId: string): Promise<TwilioConfig | null> {
-  const { data } = await supabaseAdmin
+export async function getWhatsAppConfig(
+  organizationId: string,
+  supabase: SupabaseClient = supabaseAdmin
+): Promise<TwilioConfig | null> {
+  const { data } = await supabase
     .from('whatsapp_configs')
     .select('twilio_account_sid, twilio_auth_token, twilio_whatsapp_number')
     .eq('organization_id', organizationId)

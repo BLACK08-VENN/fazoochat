@@ -1,11 +1,10 @@
 import express from 'express'
-import { supabaseAdmin } from '../supabaseClient'
+import { createSupabaseUserClient, supabaseAdmin } from '../supabaseClient'
 import { generateEmbedding } from '../embeddings'
 import { retrieveKnowledge } from '../vectorSearch'
 import { generateText } from '../gemini'
 import { getWhatsAppConfig, sendWhatsAppMessage, verifyTwilioSignature } from '../whatsapp'
 import { authenticate, AuthRequest } from '../middleware/authenticate'
-import { isOrganizationMember } from '../authorization'
 
 const router = express.Router()
 
@@ -177,16 +176,22 @@ router.post('/webhook/:organizationId', express.urlencoded({ extended: false }),
 
 // Send outbound WhatsApp message (authenticated)
 router.post('/send', authenticate, async (req: AuthRequest, res) => {
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
   const { organization_id, to, message, assistant_id } = req.body
   if (!organization_id || !to || !message) {
     return res.status(400).json({ error: 'organization_id, to, and message required' })
   }
 
-  if (!(await isOrganizationMember(req.user!.id, organization_id))) {
+  const { data: workspace } = await supabaseUser
+    .from('organizations')
+    .select('id')
+    .eq('id', organization_id)
+    .maybeSingle()
+  if (!workspace) {
     return res.status(403).json({ error: 'not a member' })
   }
 
-  const config = await getWhatsAppConfig(organization_id)
+  const config = await getWhatsAppConfig(organization_id, supabaseUser)
   if (!config) {
     return res.status(400).json({ error: 'WhatsApp not configured for this organization' })
   }
@@ -199,7 +204,7 @@ router.post('/send', authenticate, async (req: AuthRequest, res) => {
   // Optionally log to conversation if assistant_id provided
   if (assistant_id) {
     const phone = to.replace('+', '')
-    const { data: customer } = await supabaseAdmin
+    const { data: customer } = await supabaseUser
       .from('customers')
       .select('id')
       .eq('organization_id', organization_id)
@@ -207,7 +212,7 @@ router.post('/send', authenticate, async (req: AuthRequest, res) => {
       .maybeSingle()
 
     if (customer) {
-      const { data: conv } = await supabaseAdmin
+      const { data: conv } = await supabaseUser
         .from('conversations')
         .select('id')
         .eq('organization_id', organization_id)
@@ -220,14 +225,14 @@ router.post('/send', authenticate, async (req: AuthRequest, res) => {
         .maybeSingle()
 
       if (conv) {
-        await supabaseAdmin.from('messages').insert([{
+        await supabaseUser.from('messages').insert([{
           conversation_id: conv.id,
           organization_id,
           sender_type: 'assistant',
           content: message,
           metadata: { channel: 'whatsapp', twilio_sid: msgSid }
         }])
-        await supabaseAdmin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id)
+        await supabaseUser.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id)
       }
     }
   }
@@ -237,11 +242,8 @@ router.post('/send', authenticate, async (req: AuthRequest, res) => {
 
 // Get WhatsApp config for an org (authenticated)
 router.get('/config/:organizationId', authenticate, async (req: AuthRequest, res) => {
-  if (!(await isOrganizationMember(req.user!.id, req.params.organizationId))) {
-    return res.status(404).json({ error: 'not found' })
-  }
-
-  const { data, error } = await supabaseAdmin
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data, error } = await supabaseUser
     .from('whatsapp_configs')
     .select('id, organization_id, twilio_account_sid, twilio_whatsapp_number, enabled, created_at')
     .eq('organization_id', req.params.organizationId)
@@ -253,6 +255,7 @@ router.get('/config/:organizationId', authenticate, async (req: AuthRequest, res
 
 // Create or update WhatsApp config (authenticated)
 router.post('/config/:organizationId', authenticate, async (req: AuthRequest, res) => {
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
   const { organizationId } = req.params
   const { twilio_account_sid, twilio_auth_token, twilio_whatsapp_number } = req.body
 
@@ -260,18 +263,23 @@ router.post('/config/:organizationId', authenticate, async (req: AuthRequest, re
     return res.status(400).json({ error: 'twilio_account_sid, twilio_auth_token, and twilio_whatsapp_number required' })
   }
 
-  if (!(await isOrganizationMember(req.user!.id, organizationId))) {
+  const { data: workspace } = await supabaseUser
+    .from('organizations')
+    .select('id')
+    .eq('id', organizationId)
+    .maybeSingle()
+  if (!workspace) {
     return res.status(403).json({ error: 'not a member' })
   }
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await supabaseUser
     .from('whatsapp_configs')
     .select('id')
     .eq('organization_id', organizationId)
     .maybeSingle()
 
   if (existing) {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseUser
       .from('whatsapp_configs')
       .update({ twilio_account_sid, twilio_auth_token, twilio_whatsapp_number, updated_at: new Date().toISOString() })
       .eq('organization_id', organizationId)
@@ -282,7 +290,7 @@ router.post('/config/:organizationId', authenticate, async (req: AuthRequest, re
     return res.json(data)
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseUser
     .from('whatsapp_configs')
     .insert([{
       organization_id: organizationId,
@@ -299,11 +307,17 @@ router.post('/config/:organizationId', authenticate, async (req: AuthRequest, re
 
 // Delete WhatsApp config
 router.delete('/config/:organizationId', authenticate, async (req: AuthRequest, res) => {
-  if (!(await isOrganizationMember(req.user!.id, req.params.organizationId))) {
+  const supabaseUser = createSupabaseUserClient(req.accessToken!)
+  const { data: workspace } = await supabaseUser
+    .from('organizations')
+    .select('id')
+    .eq('id', req.params.organizationId)
+    .maybeSingle()
+  if (!workspace) {
     return res.status(403).json({ error: 'not a member' })
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabaseUser
     .from('whatsapp_configs')
     .delete()
     .eq('organization_id', req.params.organizationId)
